@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: tikseintel-aggregator
+    env: docker
+    plan: free # Change to 'starter' if you need more RAM for Playwright
+    region: ohio
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0

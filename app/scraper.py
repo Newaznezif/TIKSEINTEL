@@ -34,9 +34,22 @@ async def fetch_screenshot(context, name, url, ip):
         # Site-specific interactions
         if name == "crowdsec":
             try:
-                # Target the specific CrowdSec modal close button
-                await page.click('button[aria-label="Close"], .modal-close, .close-button', timeout=5000)
-                await page.wait_for_timeout(1000)
+                # Target the specific CrowdSec modal close button and quota popups
+                await page.evaluate("""
+                    () => {
+                        const closeBtns = [
+                            ...document.querySelectorAll('button[aria-label="Close"]'),
+                            ...document.querySelectorAll('.modal-close'),
+                            ...document.querySelectorAll('.close-button'),
+                            ...document.querySelectorAll('[class*="CloseIcon"]')
+                        ];
+                        closeBtns.forEach(btn => btn.click());
+                        
+                        // Specifically hide quota warnings if clicking doesn't work
+                        document.querySelectorAll('[class*="quota"], [id*="quota"]').forEach(el => el.style.display = 'none');
+                    }
+                """)
+                await page.wait_for_timeout(2000)
             except: pass
             
         elif name == "criminalip":
@@ -74,6 +87,7 @@ async def fetch_screenshot(context, name, url, ip):
                     '[class*="overlay"]', '[id*="overlay"]',
                     '[class*="popup"]', '[id*="popup"]',
                     '[class*="banner"]', '[id*="banner"]',
+                    '[id*="axeptio"]', '[class*="axeptio"]',
                     '.fc-consent-root', '.tp-modal', '.tp-backdrop',
                     '#CybotCookiebotDialog'
                 ];
