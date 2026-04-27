@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Source IP Threat Intelligence Aggregator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                            950: '#082f49',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .spinner { border: 4px solid rgba(255,255,255,0.1); border-left-color: #38bdf8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-8">
+        
+        <!-- Header -->
+        <header class="text-center space-y-4 py-8">
+            <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyber-400 to-indigo-400">
+                Threat Intelligence Aggregator
+            </h1>
+            <p class="text-slate-400 max-w-2xl mx-auto text-lg">
+                Enter an IPv4 or IPv6 address to generate a unified security summary with visual evidence from top threat intelligence platforms.
+            </p>
+        </header>
+
+        <!-- Search Module -->
+        <div class="glass-panel rounded-2xl p-6 md:p-8 max-w-3xl mx-auto shadow-2xl shadow-cyber-900/20">
+            <form id="searchForm" class="flex flex-col md:flex-row gap-4">
+                <input type="text" id="ipInput" placeholder="Enter IP address (e.g., 8.8.8.8)" 
+                    class="flex-1 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyber-500 focus:border-transparent transition-all" required>
+                <button type="submit" class="bg-cyber-600 hover:bg-cyber-500 text-white px-8 py-3 rounded-xl font-medium transition-all shadow-lg shadow-cyber-500/30 flex items-center justify-center gap-2">
+                    <span>Analyze IP</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
+            </form>
+            <div id="errorMsg" class="hidden text-red-400 mt-4 text-sm text-center"></div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden flex-col items-center justify-center py-16 space-y-6">
+            <div class="spinner"></div>
+            <div class="text-center space-y-2">
+                <h3 class="text-xl font-semibold text-slate-200">Gathering Intelligence...</h3>
+                <p class="text-slate-400">Navigating platforms and capturing visual evidence. This may take up to 45 seconds.</p>
+            </div>
+            
+            <div class="w-full max-w-md bg-slate-800 rounded-full h-2 mb-4 overflow-hidden">
+                <div id="progressBar" class="bg-cyber-500 h-2 rounded-full transition-all duration-1000 w-0"></div>
+            </div>
+        </div>
+
+        <!-- Results Dashboard -->
+        <div id="resultsDashboard" class="hidden space-y-8 animate-fade-in">
+            
+            <!-- Visual Evidence Gallery -->
+            <div class="space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h2 class="text-2xl font-bold flex items-center gap-3">
+                        <svg class="w-6 h-6 text-cyber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        Visual Evidence
+                    </h2>
+                    <button id="downloadAllBtn" class="bg-cyber-600/20 hover:bg-cyber-600/40 text-cyber-400 border border-cyber-500/30 px-6 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M7 10l5 5m0 0l5-5m-5 5V3"></path></svg>
+                        <span>Download All Screenshots</span>
+                    </button>
+                </div>
+                
+                <div id="screenshotsGallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Screenshots injected here -->
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('searchForm');
+        const ipInput = document.getElementById('ipInput');
+        const errorMsg = document.getElementById('errorMsg');
+        const loadingState = document.getElementById('loadingState');
+        const resultsDashboard = document.getElementById('resultsDashboard');
+        const progressBar = document.getElementById('progressBar');
+        const screenshotsGallery = document.getElementById('screenshotsGallery');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        let currentResults = [];
+
+        // Setup formatters
+        const formatName = (name) => {
+            const map = {
+                'virustotal': 'VirusTotal',
+                'abuseipdb': 'AbuseIPDB',
+                'mxtoolbox': 'MXToolbox',
+                'otx': 'AlienVault OTX',
+                'crowdsec': 'CrowdSec',
+                'talos': 'Cisco Talos',
+                'criminalip': 'Criminal IP',
+                'apivoid': 'APIVoid'
+            };
+            return map[name] || name;
+        }
+
+        downloadAllBtn.addEventListener('click', () => {
+            if (!currentResults || currentResults.length === 0) return;
+            const ip = ipInput.value.trim();
+            
+            currentResults.forEach((screenshot, index) => {
+                if (screenshot.status === 'success') {
+                    // Slight delay between downloads to prevent browser blocking
+                    setTimeout(() => {
+                        const link = document.createElement('a');
+                        link.href = screenshot.path;
+                        link.download = `${ip}_${screenshot.name}.png`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }, index * 200);
+                }
+            });
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const ip = ipInput.value.trim();
+            if(!ip) return;
+
+            // Reset UI
+            errorMsg.classList.add('hidden');
+            resultsDashboard.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            currentResults = [];
+            
+            // Start fake progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 2;
+                if(progress > 95) progress = 95;
+                progressBar.style.width = `${progress}%`;
+            }, 1000);
+
+            try {
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ ip })
+                });
+                
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.error || 'Failed to start analysis');
+
+                const taskId = data.task_id;
+                
+                // Poll for status
+                const pollInterval = setInterval(async () => {
+                    const statusRes = await fetch(`/api/status/${taskId}`);
+                    const statusData = await statusRes.json();
+                    
+                    if(statusData.status === 'completed') {
+                        clearInterval(pollInterval);
+                        clearInterval(progressInterval);
+                        progressBar.style.width = '100%';
+                        
+                        setTimeout(() => {
+                            currentResults = statusData.screenshots;
+                            renderResults(statusData);
+                        }, 500);
+                    }
+                }, 500);
+
+            } catch (err) {
+                clearInterval(progressInterval);
+                loadingState.classList.add('hidden');
+                errorMsg.textContent = err.message;
+                errorMsg.classList.remove('hidden');
+            }
+        });
+
+        function renderResults(data) {
+            loadingState.classList.add('hidden');
+            resultsDashboard.classList.remove('hidden');
+            
+            // Render Screenshots
+            screenshotsGallery.innerHTML = '';
+            data.screenshots.forEach(screenshot => {
+                const card = document.createElement('div');
+                card.className = 'glass-panel rounded-xl overflow-hidden shadow-lg group hover:ring-2 ring-cyber-500 transition-all cursor-pointer flex flex-col relative';
+                
+                const header = document.createElement('div');
+                header.className = 'p-3 border-b border-slate-700/50 flex justify-between items-center bg-slate-900/50';
+                
+                const title = document.createElement('h3');
+                title.className = 'font-semibold text-slate-200';
+                title.textContent = formatName(screenshot.name);
+                
+                const statusContainer = document.createElement('div');
+                statusContainer.className = 'flex items-center gap-2';
+
+                if(screenshot.status === 'success') {
+                    const dlBtn = document.createElement('a');
+                    dlBtn.href = screenshot.path;
+                    dlBtn.download = `${data.ip}_${screenshot.name}.png`;
+                    dlBtn.className = 'text-slate-400 hover:text-cyber-400 transition-colors p-1';
+                    dlBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M7 10l5 5m0 0l5-5m-5 5V3"></path></svg>';
+                    dlBtn.title = 'Download Screenshot';
+                    dlBtn.onclick = (e) => e.stopPropagation();
+                    statusContainer.appendChild(dlBtn);
+                }
+
+                const status = document.createElement('span');
+                status.className = `text-xs px-2 py-1 rounded-full ${screenshot.status === 'success' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`;
+                status.textContent = screenshot.status === 'success' ? 'Captured' : 'Failed';
+
+                statusContainer.appendChild(status);
+                header.appendChild(title);
+                header.appendChild(statusContainer);
+                card.appendChild(header);
+
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'relative flex-1 bg-slate-950 aspect-video overflow-hidden';
+                
+                if(screenshot.status === 'success') {
+                    const img = document.createElement('img');
+                    img.src = screenshot.path;
+                    img.className = 'w-full h-full object-cover object-top opacity-80 group-hover:opacity-100 transition-opacity';
+                    img.alt = `${formatName(screenshot.name)} screenshot`;
+                    imgContainer.appendChild(img);
+                    
+                    // Add external link
+                    const link = document.createElement('a');
+                    link.href = screenshot.url;
+                    link.target = '_blank';
+                    link.className = 'absolute inset-0 z-10';
+                    imgContainer.appendChild(link);
+                } else {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'absolute inset-0 flex items-center justify-center p-4 text-center';
+                    errorDiv.innerHTML = `<p class="text-sm text-red-400 break-words">${screenshot.error || 'Failed to capture screenshot'}</p>`;
+                    imgContainer.appendChild(errorDiv);
+                }
+
+                card.appendChild(imgContainer);
+                screenshotsGallery.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
